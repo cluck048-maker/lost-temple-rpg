@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>失落神殿 · AI RPG</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0e17;
+    --bg2: #1a1828;
+    --bg3: #232136;
+    --border: rgba(175,169,236,0.15);
+    --border2: rgba(175,169,236,0.3);
+    --purple: #534AB7;
+    --purple-light: #7F77DD;
+    --purple-pale: #EEEDFE;
+    --teal: #1D9E75;
+    --coral: #D85A30;
+    --amber: #EF9F27;
+    --text: #e8e6f0;
+    --text2: #9d9ab5;
+    --text3: #6b6880;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 20px;
+  }
+  .game-wrapper {
+    width: 100%;
+    max-width: 680px;
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--bg2);
+  }
+
+  /* HEADER */
+  .g-header {
+    background: #1c1a32;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .g-logo { font-size: 16px; font-weight: 600; color: #CECBF6; letter-spacing: 0.04em; }
+  .g-badge { background: var(--purple); color: #CECBF6; font-size: 12px; padding: 4px 12px; border-radius: 20px; }
+
+  /* SETUP SCREEN */
+  .setup-screen { padding: 2rem; text-align: center; }
+  .setup-title { font-size: 28px; font-weight: 700; color: #CECBF6; margin-bottom: 8px; }
+  .setup-sub { font-size: 14px; color: var(--text2); line-height: 1.7; margin-bottom: 24px; }
+  .api-row { display: flex; gap: 8px; margin-bottom: 24px; }
+  .api-input {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 10px 14px; color: var(--text);
+    font-size: 13px; font-family: monospace; outline: none;
+  }
+  .api-input:focus { border-color: var(--purple-light); }
+  .api-input::placeholder { color: var(--text3); }
+  .api-hint { font-size: 11px; color: var(--text3); margin-bottom: 20px; line-height: 1.6; }
+  .api-hint a { color: var(--purple-light); text-decoration: none; }
+  .api-hint a:hover { text-decoration: underline; }
+  .class-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+  .class-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 10px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .class-card:hover { border-color: var(--border2); background: #2a2840; }
+  .class-card.selected { border: 2px solid var(--purple-light); background: #211f3a; }
+  .class-icon { font-size: 28px; margin-bottom: 8px; }
+  .class-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .class-desc { font-size: 11px; color: var(--text2); line-height: 1.5; }
+  .class-stat { font-size: 11px; color: var(--teal); margin-top: 6px; font-weight: 500; }
+  .start-btn {
+    background: var(--purple); color: #EEEDFE; border: none;
+    border-radius: 10px; padding: 13px 40px; font-size: 15px;
+    font-weight: 600; cursor: pointer; transition: background 0.2s; width: 100%;
+  }
+  .start-btn:hover { background: #3C3489; }
+  .start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* STATS BAR */
+  .g-stats {
+    display: flex; border-bottom: 1px solid var(--border);
+    background: #171626;
+  }
+  .stat-cell {
+    flex: 1; padding: 10px 14px;
+    border-right: 1px solid var(--border);
+  }
+  .stat-cell:last-child { border-right: none; }
+  .stat-label { font-size: 10px; color: var(--text3); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-val { font-size: 15px; font-weight: 600; color: var(--text); }
+  .hp-track { height: 4px; background: var(--border); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+  .hp-bar { height: 100%; border-radius: 2px; transition: width 0.4s, background 0.4s; }
+
+  /* SCENE BAR */
+  .g-scene {
+    padding: 10px 20px;
+    background: #1c1a32;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .scene-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--purple-light); flex-shrink: 0; }
+  .scene-name { font-size: 13px; font-weight: 600; color: #AFA9EC; }
+  .scene-turn { font-size: 11px; color: var(--text3); margin-left: auto; }
+
+  /* STORY */
+  .g-story {
+    padding: 18px 20px;
+    min-height: 240px;
+    max-height: 340px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+  }
+  .g-story::-webkit-scrollbar { width: 4px; }
+  .g-story::-webkit-scrollbar-track { background: transparent; }
+  .g-story::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .msg {
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text);
+  }
+  .msg-narrate { background: var(--bg3); border-left: 3px solid var(--purple); border-radius: 0 10px 10px 0; }
+  .msg-combat { background: #2a1a12; border-left: 3px solid var(--coral); border-radius: 0 10px 10px 0; color: #f0b090; }
+  .msg-loot { background: #0e2a1e; border-left: 3px solid var(--teal); border-radius: 0 10px 10px 0; color: #80d4b0; }
+  .msg-player { font-size: 12px; color: var(--text3); padding: 4px 0 4px 16px; border-left: 2px solid var(--border2); background: transparent; border-radius: 0; margin-bottom: 6px; }
+  .msg-system { text-align: center; font-size: 12px; color: var(--text3); padding: 8px; background: transparent; border-radius: 0; margin-bottom: 8px; letter-spacing: 0.05em; }
+  .msg-loading { color: var(--text3); font-style: italic; background: var(--bg3); border-radius: 10px; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.35} }
+
+  /* CHOICES */
+  .g-choices {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    background: #171626;
+  }
+  .choices-hint { font-size: 11px; color: var(--text3); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .choice-grid.cols1 { grid-template-columns: 1fr; }
+  .choice-grid.cols3 { grid-template-columns: 1fr; }
+  .c-btn {
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 10px 14px; font-size: 13px;
+    color: var(--text); cursor: pointer; text-align: left;
+    transition: all 0.15s; line-height: 1.5; font-family: inherit;
+  }
+  .c-btn:hover { background: #2a2840; border-color: var(--purple-light); }
+  .c-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .c-btn.danger { border-color: rgba(216,90,48,0.5); color: #f0906a; }
+  .c-btn.danger:hover { background: #2a1a12; border-color: var(--coral); }
+  .c-btn.safe { border-color: rgba(29,158,117,0.5); color: #60c4a0; }
+  .c-btn.safe:hover { background: #0e2a1e; border-color: var(--teal); }
+
+  /* LOG */
+  .g-log {
+    padding: 8px 20px;
+    border-top: 1px solid var(--border);
+    max-height: 72px;
+    overflow-y: auto;
+    background: #13121f;
+  }
+  .g-log::-webkit-scrollbar { width: 3px; }
+  .g-log::-webkit-scrollbar-thumb { background: var(--border); }
+  .log-item { font-size: 11px; color: var(--text3); padding: 2px 0; display: flex; gap: 8px; font-family: monospace; }
+  .log-tag { font-weight: 700; flex-shrink: 0; }
+  .log-tag.purple { color: var(--purple-light); }
+  .log-tag.red { color: var(--coral); }
+  .log-tag.green { color: var(--teal); }
+  .log-tag.amber { color: var(--amber); }
+
+  /* FOOTER */
+  .g-footer {
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: #13121f;
+  }
+  .footer-powered { font-size: 11px; color: var(--text3); }
+  .footer-mode { font-size: 11px; color: var(--text3); }
+  .mode-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); margin-right: 5px; }
+  .mode-dot.demo { background: var(--amber); }
+
+  @media (max-width: 480px) {
+    body { padding: 0; }
+    .game-wrapper { border-radius: 0; border-left: none; border-right: none; }
+    .class-grid { grid-template-columns: 1fr; }
+    .choice-grid { grid-template-columns: 1fr; }
+    .g-stats { flex-wrap: wrap; }
+    .stat-cell { min-width: 50%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="game-wrapper">
+  <div class="g-header">
+    <span class="g-logo">⚔ 失落神殿</span>
+    <span class="g-badge" id="hdr-badge">AI RPG</span>
+  </div>
+
+  <!-- SETUP SCREEN -->
+  <div id="setup-screen">
+    <div class="setup-screen">
+      <div class="setup-title">失落神殿</div>
+      <div class="setup-sub">由 Claude AI 驱动的奇幻文字冒险<br>每次游戏，故事都不一样</div>
+
+      <div class="api-row">
+        <input class="api-input" type="password" id="api-key-input"
+               placeholder="sk-ant-... 输入你的 Anthropic API Key（可选）">
+      </div>
+      <div class="api-hint">
+        API Key 让游戏由真实 AI 驱动，故事完全动态生成。<br>
+        没有也没关系，不填则使用内置演示模式正常游玩。<br>
+        <a href="https://console.anthropic.com/keys" target="_blank">→ 点此免费获取 API Key</a>（Key 只存在本地，不会上传）
+      </div>
+
+      <div class="class-grid">
+        <div class="class-card" id="cls-0" onclick="selectClass(0)">
+          <div class="class-icon">⚔️</div>
+          <div class="class-name">战士</div>
+          <div class="class-desc">铁甲重剑，以力破法</div>
+          <div class="class-stat">HP 130 · 战斗减伤 20%</div>
+        </div>
+        <div class="class-card" id="cls-1" onclick="selectClass(1)">
+          <div class="class-icon">🔮</div>
+          <div class="class-name">法师</div>
+          <div class="class-desc">古卷星图，智破万难</div>
+          <div class="class-stat">HP 80 · 金币获取 +50%</div>
+        </div>
+        <div class="class-card" id="cls-2" onclick="selectClass(2)">
+          <div class="class-icon">🗡️</div>
+          <div class="class-name">刺客</div>
+          <div class="class-desc">影踪虚实，来去无踪</div>
+          <div class="class-stat">HP 100 · 30% 完全闪避</div>
+        </div>
+      </div>
+
+      <button class="start-btn" id="start-btn" onclick="beginGame()" disabled>选择职业以开始冒险</button>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game-screen" style="display:none">
+    <div class="g-stats">
+      <div class="stat-cell">
+        <div class="stat-label">勇者</div>
+        <div class="stat-val" id="s-name">—</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">生命</div>
+        <div class="stat-val" id="s-hp">—</div>
+        <div class="hp-track"><div class="hp-bar" id="s-hpbar" style="width:100%;background:#1D9E75"></div></div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">金币</div>
+        <div class="stat-val" id="s-gold">—</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">等级</div>
+        <div class="stat-val" id="s-lv">1</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">经验</div>
+        <div class="stat-val" id="s-exp">0/100</div>
+      </div>
+    </div>
+
+    <div class="g-scene">
+      <div class="scene-dot"></div>
+      <span class="scene-name" id="s-scene">神殿入口</span>
+      <span class="scene-turn" id="s-turn">第 0 回合</span>
+    </div>
+
+    <div class="g-story" id="story-box"></div>
+
+    <div class="g-choices">
+      <div class="choices-hint" id="choices-hint">你的选择</div>
+      <div class="choice-grid" id="choices-row"></div>
+    </div>
+
+    <div class="g-log" id="g-log"></div>
+
+    <div class="g-footer">
+      <span class="footer-powered">Powered by Claude AI</span>
+      <span class="footer-mode" id="footer-mode"><span class="mode-dot demo" id="mode-dot"></span><span id="mode-label">演示模式</span></span>
+    </div>
+  </div>
+</div>
+
+<script>
+const CLASSES = [
+  { name:'战士', icon:'⚔️', maxHp:130, desc:'战斗减伤20%' },
+  { name:'法师', icon:'🔮', maxHp:80,  desc:'金币+50%' },
+  { name:'刺客', icon:'🗡️', maxHp:100, desc:'30%闪避' }
+];
+
+let gs = {};
+let selectedClass = -1;
+let busy = false;
+let apiKey = '';
+
+function selectClass(i) {
+  selectedClass = i;
+  document.querySelectorAll('.class-card').forEach((c,idx)=>c.classList.toggle('selected',idx===i));
+  document.getElementById('start-btn').textContent = '以 '+CLASSES[i].name+' 身份踏入神殿 →';
+  document.getElementById('start-btn').disabled = false;
+}
+
+function beginGame() {
+  if (selectedClass < 0) return;
+  apiKey = document.getElementById('api-key-input').value.trim();
+  const cls = CLASSES[selectedClass];
+  gs = { name:cls.name, cls:selectedClass, icon:cls.icon, maxHp:cls.maxHp, hp:cls.maxHp, gold:30, lv:1, exp:0, scene:'神殿入口', history:[], turn:0 };
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+  document.getElementById('hdr-badge').textContent = cls.icon + ' ' + cls.name;
+  setMode(!!apiKey);
+  updateStats();
+  addMsg('system', '— 冒险开始 —');
+  callAI('游戏刚开始，玩家踏入失落神殿的入口。', true);
+}
+
+function setMode(isAI) {
+  document.getElementById('mode-dot').className = 'mode-dot' + (isAI ? '' : ' demo');
+  document.getElementById('mode-label').textContent = isAI ? 'AI 模式' : '演示模式';
+}
+
+function updateStats() {
+  document.getElementById('s-name').textContent = gs.icon + ' ' + gs.name;
+  document.getElementById('s-hp').textContent = gs.hp + '/' + gs.maxHp;
+  document.getElementById('s-gold').textContent = gs.gold;
+  document.getElementById('s-lv').textContent = 'Lv.' + gs.lv;
+  document.getElementById('s-exp').textContent = gs.exp + '/' + (gs.lv * 100);
+  document.getElementById('s-turn').textContent = '第 ' + gs.turn + ' 回合';
+  const pct = Math.max(0, Math.round(gs.hp / gs.maxHp * 100));
+  const bar = document.getElementById('s-hpbar');
+  bar.style.width = pct + '%';
+  bar.style.background = pct > 60 ? '#1D9E75' : pct > 30 ? '#EF9F27' : '#D85A30';
+}
+
+function addMsg(type, text) {
+  const cls = { narrate:'msg msg-narrate', combat:'msg msg-combat', loot:'msg msg-loot', player:'msg msg-player', system:'msg msg-system', loading:'msg msg-loading' }[type] || 'msg msg-narrate';
+  const d = document.createElement('div');
+  d.className = cls;
+  d.textContent = text;
+  if (type === 'loading') d.id = 'loading-msg';
+  const box = document.getElementById('story-box');
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+  return d;
+}
+
+function addLog(tag, tagCls, text) {
+  const d = document.createElement('div');
+  d.className = 'log-item';
+  d.innerHTML = `<span class="log-tag ${tagCls}">[${tag}]</span><span>${text}</span>`;
+  const log = document.getElementById('g-log');
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+
+function setChoices(choices, tags) {
+  const row = document.getElementById('choices-row');
+  row.innerHTML = '';
+  const n = choices.length;
+  row.className = 'choice-grid' + (n === 1 ? ' cols1' : n === 3 ? ' cols3' : '');
+  choices.forEach((c, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'c-btn' + (tags && tags[i] === 'danger' ? ' danger' : tags && tags[i] === 'safe' ? ' safe' : '');
+    btn.textContent = c;
+    btn.onclick = () => onChoice(c);
+    row.appendChild(btn);
+  });
+}
+
+function disableChoices() {
+  document.querySelectorAll('.c-btn').forEach(b => b.disabled = true);
+}
+
+function onChoice(choice) {
+  if (busy) return;
+  disableChoices();
+  addMsg('player', '▸ ' + choice);
+  gs.history.push({ role: 'user', content: choice });
+  gs.turn++;
+  callAI(choice, false);
+}
+
+function applyEffects(p) {
+  let hp = p.hpChange || 0;
+  let gold = p.goldChange || 0;
+
+  if (p.type === 'combat') {
+    if (gs.cls === 0) hp = Math.round(hp * 0.8);
+    if (gs.cls === 2 && Math.random() < 0.3) {
+      hp = 0;
+      addLog('闪避', 'green', '刺客身法敏捷，完全闪避了攻击！');
+    }
+  }
+  if (p.type === 'loot' && gs.cls === 1) gold = Math.round(gold * 1.5);
+
+  gs.hp = Math.max(0, Math.min(gs.maxHp, gs.hp + hp));
+  gs.gold = Math.max(0, gs.gold + gold);
+  gs.exp += (p.expGain || 0);
+
+  if (hp < 0) addLog('战斗', 'red', '受到 ' + Math.abs(hp) + ' 点伤害，剩余 HP ' + gs.hp);
+  if (gold > 0) addLog('获得', 'green', '金币 +' + gold + '，共 ' + gs.gold + ' 枚');
+  if (p.expGain > 0) addLog('经验', 'purple', '+' + p.expGain + ' EXP');
+
+  if (gs.exp >= gs.lv * 100) {
+    gs.exp -= gs.lv * 100;
+    gs.lv++;
+    gs.maxHp += 20;
+    gs.hp = Math.min(gs.maxHp, gs.hp + 20);
+    addLog('升级', 'amber', '升至 Lv.' + gs.lv + '！最大 HP +20，恢复 20 点生命');
+  }
+}
+
+async function callAI(action, isFirst) {
+  busy = true;
+  document.getElementById('choices-hint').textContent = 'AI 思考中...';
+  const loadEl = addMsg('loading', '正在书写你的命运……');
+
+  if (!apiKey) {
+    await new Promise(r => setTimeout(r, 600));
+    loadEl.remove();
+    useFallback();
+    busy = false;
+    return;
+  }
+
+  const SYS = `你是专业奇幻文字RPG主持人，游戏「失落神殿」。
+玩家职业：${gs.name}（${['战士:战斗减伤20%','法师:金币+50%','刺客:30%闪避'][gs.cls]}）
+状态：HP ${gs.hp}/${gs.maxHp}，金币${gs.gold}，Lv${gs.lv}，已历${gs.turn}回合
+当前场景：${gs.scene}
+
+严格返回纯JSON（不要markdown代码块，不要其他文字）：
+{"story":"生动场景描述2-4句","scene":"场景名5字内","type":"narrate|combat|loot","choices":["选项1","选项2","选项3"],"choiceTags":["normal|danger|safe","normal|danger|safe","normal|danger|safe"],"hpChange":0,"goldChange":0,"expGain":0,"logText":"事件记录15字内"}
+
+规则：combat时hpChange负数-5到-25；loot时goldChange正数10-60；expGain范围5-30；每5回合设计大事件；story有悬念；HP<=0时描述英勇牺牲给重新开始选项；保持故事连贯。`;
+
+  const msgs = isFirst
+    ? [{ role: 'user', content: '游戏开始，我踏入了失落神殿的入口。' }]
+    : [...gs.history.slice(-10)];
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-calls': 'true'
+      },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 700, system: SYS, messages: msgs })
+    });
+
+    const data = await res.json();
+    loadEl.remove();
+
+    if (data.error) {
+      addLog('错误', 'red', data.error.message || 'API错误，切换演示模式');
+      setMode(false);
+      useFallback();
+      busy = false;
+      return;
+    }
+
+    const raw = (data.content?.[0]?.text || '').trim();
+    let p;
+    try {
+      const m = raw.match(/\{[\s\S]*\}/);
+      p = JSON.parse(m ? m[0] : raw);
+    } catch(e) {
+      p = { story: raw, scene: gs.scene, type: 'narrate', choices: ['继续前进', '仔细观察', '原路返回'], choiceTags: ['normal', 'safe', 'normal'], hpChange: 0, goldChange: 0, expGain: 5, logText: '探索中' };
+    }
+
+    gs.scene = p.scene || gs.scene;
+    document.getElementById('s-scene').textContent = gs.scene;
+    applyEffects(p);
+    updateStats();
+
+    addMsg(p.type === 'combat' ? 'combat' : p.type === 'loot' ? 'loot' : 'narrate', p.story || '');
+    if (p.logText) addLog('事件', 'purple', p.logText);
+
+    gs.history.push({ role: 'assistant', content: p.story || '' });
+
+    if (gs.hp <= 0) {
+      addMsg('system', '— 你英勇地倒下了 —');
+      setChoices(['重新开始冒险'], []);
+      document.querySelector('.c-btn').onclick = restartGame;
+    } else {
+      setChoices(p.choices || ['继续前进', '仔细观察', '原路返回'], p.choiceTags);
+      document.getElementById('choices-hint').textContent = '你的选择';
+    }
+  } catch(e) {
+    loadEl.remove();
+    addLog('错误', 'red', '网络错误：' + e.message);
+    setMode(false);
+    useFallback();
+  }
+  busy = false;
+}
+
+function restartGame() {
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('setup-screen').style.display = 'block';
+  document.getElementById('hdr-badge').textContent = 'AI RPG';
+  document.getElementById('story-box').innerHTML = '';
+  document.getElementById('choices-row').innerHTML = '';
+  document.getElementById('g-log').innerHTML = '';
+  selectedClass = -1;
+  document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('start-btn').textContent = '选择职业以开始冒险';
+}
+
+const DEMOS = [
+  { story:'你推开沉重的石门，一股带着霉味的冷风扑面而来。神殿内部黑暗深邃，两侧石壁上刻满了看不懂的古代符文，偶尔有火把在风中摇曳。前方的石廊延伸向黑暗深处，三条支路横亘其前。', scene:'石廊入口', type:'narrate', choices:['沿左侧走，似有微光','走中央主道','贴右墙前行，有水声'], choiceTags:['safe','normal','normal'], hpChange:0, goldChange:0, expGain:5, logText:'踏入神殿' },
+  { story:'你顺着微光来到一间古老的房间。一只沉睡的石质蜘蛛守卫突然被你的脚步声惊醒！它的八只眼睛发出红色的光芒，向你扑来。战斗不可避免！', scene:'石蜘蛛巢', type:'combat', choices:['举剑迎战','翻滚到侧面攻击','用火把驱赶'], choiceTags:['danger','safe','normal'], hpChange:-18, goldChange:0, expGain:25, logText:'遭遇石蜘蛛守卫' },
+  { story:'击败蜘蛛后，你在石缝中发现了一个皮质钱袋！里面装着闪闪发光的金币，还有一张羊皮地图——上面标注着神殿深处「永恒之室」的位置。', scene:'石蜘蛛巢', type:'loot', choices:['按地图深入探索','先休息恢复体力','把地图藏起来备用'], choiceTags:['danger','safe','normal'], hpChange:0, goldChange:45, expGain:20, logText:'发现宝藏与地图' },
+  { story:'地图引导你来到一扇高大的石门前。门上镶嵌着三颗空槽，旁边的壁画显示：按照「月亮—星辰—太阳」的顺序放入三颗宝石，石门方能开启。你检视身上的物品……', scene:'谜题石门', type:'narrate', choices:['尝试解开谜题','强行撞门（危险）','绕道寻找其他入口'], choiceTags:['safe','danger','normal'], hpChange:0, goldChange:0, expGain:10, logText:'发现谜题石门' },
+  { story:'踏过石门，你来到神殿最深处——「永恒之室」。正中央的祭坛上放着一把散发金光的古剑，但守护它的，是一头已苏醒的石像巨人！地面在它的脚步声中颤抖着。', scene:'永恒之室', type:'combat', choices:['冲向神器，快速夺取！','寻找石像弱点后出击','引开石像，伺机而动'], choiceTags:['danger','safe','normal'], hpChange:-22, goldChange:0, expGain:35, logText:'石像巨人觉醒' }
+];
+let demoIdx = 0;
+
+function useFallback() {
+  const d = DEMOS[demoIdx % DEMOS.length];
+  demoIdx++;
+  gs.scene = d.scene;
+  document.getElementById('s-scene').textContent = d.scene;
+  applyEffects(d);
+  updateStats();
+  addMsg(d.type === 'combat' ? 'combat' : d.type === 'loot' ? 'loot' : 'narrate', d.story);
+  if (d.logText) addLog('事件', 'purple', d.logText);
+  gs.history.push({ role: 'assistant', content: d.story });
+  if (gs.hp <= 0) {
+    addMsg('system', '— 你英勇地倒下了 —');
+    setChoices(['重新开始冒险'], []);
+    document.querySelector('.c-btn').onclick = restartGame;
+  } else {
+    setChoices(d.choices, d.choiceTags);
+    document.getElementById('choices-hint').textContent = '你的选择';
+  }
+}
+</script>
+</body>
+</html>
